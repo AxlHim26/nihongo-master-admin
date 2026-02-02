@@ -5,6 +5,7 @@ import Stack from "@mui/material/Stack";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { BYPASS_ADMIN_AUTH } from "@/lib/env";
 import { getToken } from "@/lib/storage";
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -12,6 +13,11 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    if (BYPASS_ADMIN_AUTH) {
+      setReady(true);
+      return;
+    }
+
     const token = getToken();
     if (!token) {
       router.replace("/login");
