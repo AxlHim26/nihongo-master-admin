@@ -1,12 +1,11 @@
 "use client";
 
 import AutoStoriesIcon from "@mui/icons-material/AutoStories";
-import BookIcon from "@mui/icons-material/Book";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import EditNoteIcon from "@mui/icons-material/EditNote";
 import LanguageIcon from "@mui/icons-material/Language";
+import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
 import SchoolIcon from "@mui/icons-material/School";
-import SubjectIcon from "@mui/icons-material/Subject";
 import LogoutIcon from "@mui/icons-material/Logout";
 import Button from "@mui/material/Button";
 import Stack from "@mui/material/Stack";
@@ -19,11 +18,10 @@ import { clearToken } from "@/lib/storage";
 
 const navItems = [
   { href: "/courses", label: "Courses", icon: <SchoolIcon fontSize="small" /> },
-  { href: "/chapters", label: "Chapters", icon: <BookIcon fontSize="small" /> },
   { href: "/grammar", label: "Grammar", icon: <EditNoteIcon fontSize="small" /> },
   { href: "/vocabulary", label: "Vocabulary", icon: <AutoStoriesIcon fontSize="small" /> },
   { href: "/kanji", label: "Kanji", icon: <LanguageIcon fontSize="small" /> },
-  { href: "/lessons", label: "Lessons", icon: <SubjectIcon fontSize="small" /> }
+  { href: "/users", label: "Users", icon: <PeopleAltIcon fontSize="small" /> }
 ];
 
 export default function AdminSidebar() {
