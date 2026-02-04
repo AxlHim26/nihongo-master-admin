@@ -85,3 +85,28 @@ export type AdminLoginRequest = {
 export type AdminLoginResponse = {
   token: string;
 };
+
+export type AdminRegisterRequest = {
+  username: string;
+  email: string;
+  password: string;
+  bootstrapKey: string;
+};
+
+export type UserRole = "USER" | "ADMIN";
+
+export type UserAccount = {
+  id: number;
+  username: string;
+  email: string;
+  role: UserRole;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CreateUserRequest = {
+  username: string;
+  email: string;
+  password: string;
+  role?: UserRole;
+};

@@ -16,13 +16,15 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { BYPASS_ADMIN_AUTH } from "@/lib/env";
-import { loginAdmin } from "@/lib/lms-api";
+import { registerAdmin } from "@/lib/lms-api";
 import { setToken } from "@/lib/storage";
 
-export default function LoginPage() {
+export default function RegisterAdminPage() {
   const router = useRouter();
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [bootstrapKey, setBootstrapKey] = useState("");
 
   useEffect(() => {
     if (BYPASS_ADMIN_AUTH) {
@@ -30,8 +32,8 @@ export default function LoginPage() {
     }
   }, [router]);
 
-  const loginMutation = useMutation({
-    mutationFn: loginAdmin,
+  const registerMutation = useMutation({
+    mutationFn: registerAdmin,
     onSuccess: (data) => {
       setToken(data.token);
       router.replace("/courses");
@@ -40,7 +42,7 @@ export default function LoginPage() {
 
   const onSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    loginMutation.mutate({ username, password });
+    registerMutation.mutate({ username, email, password, bootstrapKey });
   };
 
   return (
@@ -52,18 +54,18 @@ export default function LoginPage() {
               <LockOutlinedIcon />
             </Avatar>
             <Typography variant="h5" fontWeight={700}>
-              Admin Login
+              Create Admin Account
             </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Sign in with admin account from `nihongo-master-be`
+            <Typography variant="body2" color="text.secondary" textAlign="center">
+              Register the first admin account using the bootstrap key.
             </Typography>
           </Stack>
 
-          {loginMutation.isError && (
+          {registerMutation.isError && (
             <Alert severity="error">
-              {loginMutation.error instanceof Error
-                ? loginMutation.error.message
-                : "Login failed."}
+              {registerMutation.error instanceof Error
+                ? registerMutation.error.message
+                : "Registration failed."}
             </Alert>
           )}
 
@@ -76,23 +78,39 @@ export default function LoginPage() {
           />
 
           <TextField
+            label="Email"
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            required
+          />
+
+          <TextField
             label="Password"
             type="password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             required
+            helperText="Minimum 6 characters"
           />
 
-          <Button type="submit" variant="contained" size="large" disabled={loginMutation.isPending}>
-            {loginMutation.isPending ? "Signing in..." : "Sign in"}
+          <TextField
+            label="Bootstrap key"
+            value={bootstrapKey}
+            onChange={(event) => setBootstrapKey(event.target.value)}
+            required
+            helperText="Set ADMIN_BOOTSTRAP_KEY in backend .env"
+          />
+
+          <Button type="submit" variant="contained" size="large" disabled={registerMutation.isPending}>
+            {registerMutation.isPending ? "Creating..." : "Create admin"}
           </Button>
 
-          <Box className="rounded-xl bg-slate-50 p-3 text-xs text-slate-600">
-            First time?{" "}
-            <Link href="/register" className="font-semibold text-slate-900">
-              Create admin account
+          <Box className="text-center text-sm text-slate-600">
+            Already have an admin?{" "}
+            <Link href="/login" className="font-semibold text-slate-900">
+              Sign in
             </Link>
-            .
           </Box>
         </Stack>
       </Paper>

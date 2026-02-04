@@ -2,6 +2,7 @@ import { apiRequest } from "@/lib/api-client";
 import type {
   AdminLoginRequest,
   AdminLoginResponse,
+  AdminRegisterRequest,
   ChapterRequest,
   Course,
   CourseChapter,
@@ -9,12 +10,20 @@ import type {
   CourseRequest,
   CourseSection,
   CourseSectionType,
+  CreateUserRequest,
   LessonRequest,
-  SectionRequest
+  SectionRequest,
+  UserAccount
 } from "@/lib/types";
 
 export const loginAdmin = (payload: AdminLoginRequest) =>
   apiRequest<AdminLoginResponse>("/api/v1/auth/authenticate", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  }, false);
+
+export const registerAdmin = (payload: AdminRegisterRequest) =>
+  apiRequest<AdminLoginResponse>("/api/v1/auth/register-admin", {
     method: "POST",
     body: JSON.stringify(payload)
   }, false);
@@ -95,4 +104,12 @@ export const updateLesson = (id: number, payload: LessonRequest) =>
 export const deleteLesson = (id: number) =>
   apiRequest<void>(`/api/v1/lessons/${id}`, {
     method: "DELETE"
+  });
+
+export const getUsers = () => apiRequest<UserAccount[]>("/api/v1/admin/users");
+
+export const createUser = (payload: CreateUserRequest) =>
+  apiRequest<UserAccount>("/api/v1/admin/users", {
+    method: "POST",
+    body: JSON.stringify(payload)
   });
