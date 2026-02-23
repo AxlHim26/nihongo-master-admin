@@ -1,7 +1,5 @@
 export type CourseSectionType = "VOCABULARY" | "GRAMMAR" | "KANJI";
 
-export type CourseSectionStatus = "ACTIVE" | "DRAFT" | "UNDER_DEVELOPMENT";
-
 export type ApiResponse<T> = {
   status: number;
   message: string;
@@ -23,9 +21,6 @@ export type CourseSection = {
   chapterId: number;
   type: CourseSectionType;
   title: string;
-  level?: string | null;
-  topic?: string | null;
-  status: CourseSectionStatus;
   sectionOrder: number;
   lessons: CourseLesson[];
 };
@@ -63,10 +58,6 @@ export type ChapterRequest = {
 
 export type SectionRequest = {
   type: CourseSectionType;
-  title: string;
-  level?: string;
-  topic?: string;
-  status?: CourseSectionStatus;
   sectionOrder?: number;
 };
 
