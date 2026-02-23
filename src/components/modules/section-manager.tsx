@@ -25,19 +25,12 @@ import { queryKeys } from "@/lib/query-keys";
 import { createSection, deleteSection, getChapters, getSections, updateSection } from "@/lib/lms-api";
 import type {
   CourseSection,
-  CourseSectionStatus,
   CourseSectionType,
   SectionRequest
 } from "@/lib/types";
 
-const statusOptions: CourseSectionStatus[] = ["ACTIVE", "DRAFT", "UNDER_DEVELOPMENT"];
-
 const initialForm = (type: CourseSectionType): SectionRequest => ({
   type,
-  title: "",
-  level: "",
-  topic: "",
-  status: type === "VOCABULARY" ? "UNDER_DEVELOPMENT" : "ACTIVE",
   sectionOrder: 0
 });
 
@@ -118,17 +111,12 @@ export default function SectionManager({
     setEditing(section);
     setForm({
       type: section.type,
-      title: section.title,
-      level: section.level ?? "",
-      topic: section.topic ?? "",
-      status: section.status,
       sectionOrder: section.sectionOrder
     });
     setDialogOpen(true);
   };
 
   const onSubmit = () => {
-    if (!form.title.trim()) return;
     if (editing) {
       updateMutation.mutate({ id: editing.id, payload: form });
       return;
@@ -173,8 +161,7 @@ export default function SectionManager({
             <TableRow>
               <TableCell>Title</TableCell>
               <TableCell>Chapter</TableCell>
-              <TableCell>Level / Topic</TableCell>
-              <TableCell>Status</TableCell>
+              <TableCell>Type</TableCell>
               <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
@@ -189,13 +176,7 @@ export default function SectionManager({
                 </TableCell>
                 <TableCell>{chapterNameMap.get(section.chapterId) ?? `#${section.chapterId}`}</TableCell>
                 <TableCell>
-                  <Typography variant="body2">Level: {section.level || "-"}</Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Topic: {section.topic || "-"}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Chip label={section.status} size="small" />
+                  <Chip label={section.type} size="small" />
                 </TableCell>
                 <TableCell align="right">
                   <Button
@@ -246,43 +227,6 @@ export default function SectionManager({
               ))}
             </TextField>
           )}
-
-          <TextField
-            label="Title"
-            value={form.title}
-            onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
-            required
-          />
-
-          <TextField
-            label="Level"
-            value={form.level ?? ""}
-            onChange={(event) => setForm((prev) => ({ ...prev, level: event.target.value }))}
-          />
-
-          <TextField
-            label="Topic"
-            value={form.topic ?? ""}
-            onChange={(event) => setForm((prev) => ({ ...prev, topic: event.target.value }))}
-          />
-
-          <TextField
-            select
-            label="Status"
-            value={form.status}
-            onChange={(event) =>
-              setForm((prev) => ({
-                ...prev,
-                status: event.target.value as CourseSectionStatus
-              }))
-            }
-          >
-            {statusOptions.map((status) => (
-              <MenuItem key={status} value={status}>
-                {status}
-              </MenuItem>
-            ))}
-          </TextField>
 
           <TextField
             label="Order"

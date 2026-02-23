@@ -1,108 +1,192 @@
 "use client";
 
 import AddIcon from "@mui/icons-material/Add";
+import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
+import AutoStoriesRoundedIcon from "@mui/icons-material/AutoStoriesRounded";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import MenuBookRoundedIcon from "@mui/icons-material/MenuBookRounded";
+import PlayCircleRoundedIcon from "@mui/icons-material/PlayCircleRounded";
+import SchoolRoundedIcon from "@mui/icons-material/SchoolRounded";
 import Alert from "@mui/material/Alert";
-import Accordion from "@mui/material/Accordion";
-import AccordionDetails from "@mui/material/AccordionDetails";
-import AccordionSummary from "@mui/material/AccordionSummary";
-import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
-import Divider from "@mui/material/Divider";
 import IconButton from "@mui/material/IconButton";
-import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { memo, useCallback, useMemo, useState } from "react";
 
 import ConfirmDialog from "@/components/common/confirm-dialog";
 import CrudDialog from "@/components/common/crud-dialog";
-import { queryKeys } from "@/lib/query-keys";
 import {
   createChapter,
   createCourse,
   createLesson,
-  createSection,
   deleteChapter,
   deleteCourse,
   deleteLesson,
-  deleteSection,
   getCourses,
   updateChapter,
   updateCourse,
   updateLesson,
-  updateSection
 } from "@/lib/lms-api";
+import { queryKeys } from "@/lib/query-keys";
 import type {
   ChapterRequest,
   Course,
+  CourseChapter,
+  CourseLesson,
   CourseRequest,
-  CourseSectionStatus,
+  CourseSection,
   CourseSectionType,
   LessonRequest,
-  SectionRequest
 } from "@/lib/types";
-
-const sectionTypeOptions: CourseSectionType[] = ["VOCABULARY", "GRAMMAR", "KANJI"];
-const sectionStatusOptions: CourseSectionStatus[] = ["ACTIVE", "DRAFT", "UNDER_DEVELOPMENT"];
 
 const initialCourseForm: CourseRequest = { name: "", thumbnailUrl: "", description: "" };
 const initialChapterForm: ChapterRequest = { title: "", description: "", chapterOrder: 0 };
-const initialSectionForm: SectionRequest = {
-  type: "GRAMMAR",
-  title: "",
-  level: "",
-  topic: "",
-  status: "ACTIVE",
-  sectionOrder: 0
-};
 const initialLessonForm: LessonRequest = {
   title: "",
   videoUrl: "",
   pdfUrl: "",
-  lessonOrder: 0
+  lessonOrder: 0,
 };
 
 type DeleteTarget = {
-  kind: "course" | "chapter" | "section" | "lesson";
+  kind: "course" | "chapter" | "lesson";
   id: number;
   label: string;
 };
 
-export default function CourseManager() {
+const findCourse = (courses: Course[], courseId: number | null) =>
+  courses.find((course) => course.id === courseId) ?? null;
+
+const findChapter = (course: Course | null, chapterId: number | null) =>
+  course?.chapters.find((chapter) => chapter.id === chapterId) ?? null;
+
+const findSection = (chapter: CourseChapter | null, sectionId: number | null) =>
+  chapter?.sections.find((section) => section.id === sectionId) ?? null;
+
+const lessonCountByCourse = (course: Course) =>
+  course.chapters.reduce(
+    (sum, chapter) => sum + chapter.sections.reduce((acc, section) => acc + section.lessons.length, 0),
+    0,
+  );
+
+const sectionIconMap: Record<CourseSectionType, React.ReactNode> = {
+  VOCABULARY: <AutoStoriesRoundedIcon fontSize="small" />,
+  GRAMMAR: <MenuBookRoundedIcon fontSize="small" />,
+  KANJI: <SchoolRoundedIcon fontSize="small" />,
+};
+
+type CourseManagerProps = {
+  routeCourseId?: number | null;
+  routeChapterId?: number | null;
+  routeSectionId?: number | null;
+};
+
+const toNullableId = (value: number | null | undefined) =>
+  typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null;
+
+const coursePath = (courseId: number) => `/courses/${courseId}`;
+const chapterPath = (courseId: number, chapterId: number) => `/courses/${courseId}/chapters/${chapterId}`;
+const sectionPath = (courseId: number, chapterId: number, sectionId: number) =>
+  `/courses/${courseId}/chapters/${chapterId}/sections/${sectionId}`;
+
+export default function CourseManager({
+  routeCourseId,
+  routeChapterId,
+  routeSectionId,
+}: CourseManagerProps) {
+  const router = useRouter();
   const queryClient = useQueryClient();
 
   const [courseDialogOpen, setCourseDialogOpen] = useState(false);
   const [chapterDialogOpen, setChapterDialogOpen] = useState(false);
-  const [sectionDialogOpen, setSectionDialogOpen] = useState(false);
   const [lessonDialogOpen, setLessonDialogOpen] = useState(false);
 
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [editingChapterId, setEditingChapterId] = useState<number | null>(null);
-  const [editingSectionId, setEditingSectionId] = useState<number | null>(null);
   const [editingLessonId, setEditingLessonId] = useState<number | null>(null);
 
   const [courseContextId, setCourseContextId] = useState<number | null>(null);
-  const [chapterContextId, setChapterContextId] = useState<number | null>(null);
   const [sectionContextId, setSectionContextId] = useState<number | null>(null);
 
   const [courseForm, setCourseForm] = useState<CourseRequest>(initialCourseForm);
   const [chapterForm, setChapterForm] = useState<ChapterRequest>(initialChapterForm);
-  const [sectionForm, setSectionForm] = useState<SectionRequest>(initialSectionForm);
   const [lessonForm, setLessonForm] = useState<LessonRequest>(initialLessonForm);
 
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
 
   const coursesQuery = useQuery({
     queryKey: queryKeys.courses,
-    queryFn: () => getCourses(true)
+    queryFn: () => getCourses(true),
   });
+
+  const selectedCourseId = toNullableId(routeCourseId);
+  const selectedChapterId = toNullableId(routeChapterId);
+  const selectedSectionId = toNullableId(routeSectionId);
+
+  const courses = useMemo(() => coursesQuery.data ?? [], [coursesQuery.data]);
+  const selectedCourse = useMemo(() => findCourse(courses, selectedCourseId), [courses, selectedCourseId]);
+  const selectedChapter = useMemo(
+    () => findChapter(selectedCourse, selectedChapterId),
+    [selectedCourse, selectedChapterId],
+  );
+  const selectedSection = useMemo(
+    () => findSection(selectedChapter, selectedSectionId),
+    [selectedChapter, selectedSectionId],
+  );
+
+  const showCourses = selectedCourseId === null;
+  const showChapters = selectedCourseId !== null && selectedChapterId === null;
+  const showSections =
+    selectedCourseId !== null && selectedChapterId !== null && selectedSectionId === null;
+  const showLessons =
+    selectedCourseId !== null && selectedChapterId !== null && selectedSectionId !== null;
+
+  const backPath = useMemo(() => {
+    if (showChapters) {
+      return "/courses";
+    }
+    if (showSections && selectedCourse) {
+      return coursePath(selectedCourse.id);
+    }
+    if (showLessons && selectedCourse && selectedChapter) {
+      return chapterPath(selectedCourse.id, selectedChapter.id);
+    }
+    return null;
+  }, [selectedChapter, selectedCourse, showChapters, showLessons, showSections]);
+
+  const getNextChapterOrder = useCallback(
+    (courseId: number) => {
+      const course = findCourse(courses, courseId);
+      const maxOrder = course?.chapters.reduce((max, chapter) => Math.max(max, chapter.chapterOrder ?? 0), 0) ?? 0;
+      return maxOrder + 1;
+    },
+    [courses],
+  );
+
+  const getNextLessonOrder = useCallback(
+    (sectionId: number) => {
+      let section: CourseSection | null = null;
+      for (const course of courses) {
+        for (const chapter of course.chapters) {
+          const found = chapter.sections.find((item) => item.id === sectionId);
+          if (found) {
+            section = found;
+            break;
+          }
+        }
+      }
+      const maxOrder = section?.lessons.reduce((max, lesson) => Math.max(max, lesson.lessonOrder ?? 0), 0) ?? 0;
+      return maxOrder + 1;
+    },
+    [courses],
+  );
 
   const invalidateAll = async () => {
     await Promise.all([
@@ -112,7 +196,7 @@ export default function CourseManager() {
       queryClient.invalidateQueries({ queryKey: queryKeys.sections() }),
       queryClient.invalidateQueries({ queryKey: queryKeys.sections("GRAMMAR") }),
       queryClient.invalidateQueries({ queryKey: queryKeys.sections("VOCABULARY") }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.sections("KANJI") })
+      queryClient.invalidateQueries({ queryKey: queryKeys.sections("KANJI") }),
     ]);
   };
 
@@ -122,7 +206,7 @@ export default function CourseManager() {
       setCourseDialogOpen(false);
       setCourseForm(initialCourseForm);
       await invalidateAll();
-    }
+    },
   });
 
   const updateCourseMutation = useMutation({
@@ -132,7 +216,7 @@ export default function CourseManager() {
       setEditingCourse(null);
       setCourseForm(initialCourseForm);
       await invalidateAll();
-    }
+    },
   });
 
   const createChapterMutation = useMutation({
@@ -143,7 +227,7 @@ export default function CourseManager() {
       setChapterForm(initialChapterForm);
       setEditingChapterId(null);
       await invalidateAll();
-    }
+    },
   });
 
   const updateChapterMutation = useMutation({
@@ -153,28 +237,7 @@ export default function CourseManager() {
       setChapterForm(initialChapterForm);
       setEditingChapterId(null);
       await invalidateAll();
-    }
-  });
-
-  const createSectionMutation = useMutation({
-    mutationFn: ({ chapterId, payload }: { chapterId: number; payload: SectionRequest }) =>
-      createSection(chapterId, payload),
-    onSuccess: async () => {
-      setSectionDialogOpen(false);
-      setSectionForm(initialSectionForm);
-      setEditingSectionId(null);
-      await invalidateAll();
-    }
-  });
-
-  const updateSectionMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: number; payload: SectionRequest }) => updateSection(id, payload),
-    onSuccess: async () => {
-      setSectionDialogOpen(false);
-      setSectionForm(initialSectionForm);
-      setEditingSectionId(null);
-      await invalidateAll();
-    }
+    },
   });
 
   const createLessonMutation = useMutation({
@@ -185,7 +248,7 @@ export default function CourseManager() {
       setLessonForm(initialLessonForm);
       setEditingLessonId(null);
       await invalidateAll();
-    }
+    },
   });
 
   const updateLessonMutation = useMutation({
@@ -195,12 +258,11 @@ export default function CourseManager() {
       setLessonForm(initialLessonForm);
       setEditingLessonId(null);
       await invalidateAll();
-    }
+    },
   });
 
   const deleteCourseMutation = useMutation({ mutationFn: deleteCourse, onSuccess: invalidateAll });
   const deleteChapterMutation = useMutation({ mutationFn: deleteChapter, onSuccess: invalidateAll });
-  const deleteSectionMutation = useMutation({ mutationFn: deleteSection, onSuccess: invalidateAll });
   const deleteLessonMutation = useMutation({ mutationFn: deleteLesson, onSuccess: invalidateAll });
 
   const busy =
@@ -208,26 +270,24 @@ export default function CourseManager() {
     updateCourseMutation.isPending ||
     createChapterMutation.isPending ||
     updateChapterMutation.isPending ||
-    createSectionMutation.isPending ||
-    updateSectionMutation.isPending ||
     createLessonMutation.isPending ||
     updateLessonMutation.isPending;
 
-  const onOpenCreateCourse = () => {
+  const onOpenCreateCourse = useCallback(() => {
     setEditingCourse(null);
     setCourseForm(initialCourseForm);
     setCourseDialogOpen(true);
-  };
+  }, []);
 
-  const onOpenEditCourse = (course: Course) => {
+  const onOpenEditCourse = useCallback((course: Course) => {
     setEditingCourse(course);
     setCourseForm({
       name: course.name,
       description: course.description ?? "",
-      thumbnailUrl: course.thumbnailUrl ?? ""
+      thumbnailUrl: course.thumbnailUrl ?? "",
     });
     setCourseDialogOpen(true);
-  };
+  }, []);
 
   const onSubmitCourse = () => {
     if (!courseForm.name.trim()) return;
@@ -238,22 +298,22 @@ export default function CourseManager() {
     createCourseMutation.mutate(courseForm);
   };
 
-  const onOpenCreateChapter = (courseId: number) => {
+  const onOpenCreateChapter = useCallback((courseId: number) => {
     setEditingChapterId(null);
     setCourseContextId(courseId);
-    setChapterForm(initialChapterForm);
+    setChapterForm({ ...initialChapterForm, chapterOrder: getNextChapterOrder(courseId) });
     setChapterDialogOpen(true);
-  };
+  }, [getNextChapterOrder]);
 
-  const onOpenEditChapter = (chapterId: number, title: string, description?: string | null, chapterOrder?: number) => {
-    setEditingChapterId(chapterId);
+  const onOpenEditChapter = useCallback((chapter: CourseChapter) => {
+    setEditingChapterId(chapter.id);
     setChapterForm({
-      title,
-      description: description ?? "",
-      chapterOrder: chapterOrder ?? 0
+      title: chapter.title,
+      description: chapter.description ?? "",
+      chapterOrder: chapter.chapterOrder,
     });
     setChapterDialogOpen(true);
-  };
+  }, []);
 
   const onSubmitChapter = () => {
     if (!chapterForm.title.trim()) return;
@@ -262,62 +322,33 @@ export default function CourseManager() {
       return;
     }
     if (!courseContextId) return;
-    createChapterMutation.mutate({ courseId: courseContextId, payload: chapterForm });
-  };
 
-  const onOpenCreateSection = (chapterId: number) => {
-    setEditingSectionId(null);
-    setChapterContextId(chapterId);
-    setSectionForm(initialSectionForm);
-    setSectionDialogOpen(true);
-  };
-
-  const onOpenEditSection = (
-    sectionId: number,
-    data: Pick<SectionRequest, "type" | "title" | "level" | "topic" | "status" | "sectionOrder">
-  ) => {
-    setEditingSectionId(sectionId);
-    setSectionForm({
-      type: data.type,
-      title: data.title,
-      level: data.level ?? "",
-      topic: data.topic ?? "",
-      status: data.status ?? "ACTIVE",
-      sectionOrder: data.sectionOrder ?? 0
+    createChapterMutation.mutate({
+      courseId: courseContextId,
+      payload: {
+        ...chapterForm,
+        chapterOrder: chapterForm.chapterOrder ?? getNextChapterOrder(courseContextId),
+      },
     });
-    setSectionDialogOpen(true);
   };
 
-  const onSubmitSection = () => {
-    if (!sectionForm.title.trim()) return;
-    if (editingSectionId) {
-      updateSectionMutation.mutate({ id: editingSectionId, payload: sectionForm });
-      return;
-    }
-    if (!chapterContextId) return;
-    createSectionMutation.mutate({ chapterId: chapterContextId, payload: sectionForm });
-  };
-
-  const onOpenCreateLesson = (sectionId: number) => {
+  const onOpenCreateLesson = useCallback((sectionId: number) => {
     setEditingLessonId(null);
     setSectionContextId(sectionId);
-    setLessonForm(initialLessonForm);
+    setLessonForm({ ...initialLessonForm, lessonOrder: getNextLessonOrder(sectionId) });
     setLessonDialogOpen(true);
-  };
+  }, [getNextLessonOrder]);
 
-  const onOpenEditLesson = (
-    lessonId: number,
-    data: Pick<LessonRequest, "title" | "videoUrl" | "pdfUrl" | "lessonOrder">
-  ) => {
-    setEditingLessonId(lessonId);
+  const onOpenEditLesson = useCallback((lesson: CourseLesson) => {
+    setEditingLessonId(lesson.id);
     setLessonForm({
-      title: data.title,
-      videoUrl: data.videoUrl ?? "",
-      pdfUrl: data.pdfUrl ?? "",
-      lessonOrder: data.lessonOrder ?? 0
+      title: lesson.title,
+      videoUrl: lesson.videoUrl ?? "",
+      pdfUrl: lesson.pdfUrl ?? "",
+      lessonOrder: lesson.lessonOrder,
     });
     setLessonDialogOpen(true);
-  };
+  }, []);
 
   const onSubmitLesson = () => {
     if (!lessonForm.title.trim()) return;
@@ -326,41 +357,167 @@ export default function CourseManager() {
       return;
     }
     if (!sectionContextId) return;
-    createLessonMutation.mutate({ sectionId: sectionContextId, payload: lessonForm });
+
+    createLessonMutation.mutate({
+      sectionId: sectionContextId,
+      payload: {
+        ...lessonForm,
+        lessonOrder: lessonForm.lessonOrder ?? getNextLessonOrder(sectionContextId),
+      },
+    });
   };
 
-  const onConfirmDelete = () => {
+  const onConfirmDelete = useCallback(() => {
     if (!deleteTarget) return;
 
     const actionMap = {
       course: deleteCourseMutation,
       chapter: deleteChapterMutation,
-      section: deleteSectionMutation,
-      lesson: deleteLessonMutation
+      lesson: deleteLessonMutation,
     };
 
     actionMap[deleteTarget.kind].mutate(deleteTarget.id, {
       onSuccess: () => {
         setDeleteTarget(null);
-      }
+      },
     });
-  };
+  }, [deleteChapterMutation, deleteCourseMutation, deleteLessonMutation, deleteTarget]);
+
+  const handleBack = useCallback(() => {
+    if (backPath) {
+      router.push(backPath);
+    }
+  }, [backPath, router]);
+
+  const handleSelectCourse = useCallback(
+    (courseId: number) => {
+      router.push(coursePath(courseId));
+    },
+    [router],
+  );
+
+  const handleEditCourse = useCallback(
+    (courseId: number) => {
+      const course = findCourse(courses, courseId);
+      if (course) {
+        onOpenEditCourse(course);
+      }
+    },
+    [courses, onOpenEditCourse],
+  );
+
+  const handleDeleteCourse = useCallback(
+    (courseId: number, courseName: string) => {
+      setDeleteTarget({ kind: "course", id: courseId, label: `course \"${courseName}\"` });
+    },
+    [],
+  );
+
+  const handleSelectChapter = useCallback(
+    (chapterId: number) => {
+      if (!selectedCourse) {
+        return;
+      }
+      router.push(chapterPath(selectedCourse.id, chapterId));
+    },
+    [router, selectedCourse],
+  );
+
+  const handleEditChapter = useCallback(
+    (chapterId: number) => {
+      const chapter = selectedCourse?.chapters.find((item) => item.id === chapterId);
+      if (chapter) {
+        onOpenEditChapter(chapter);
+      }
+    },
+    [onOpenEditChapter, selectedCourse],
+  );
+
+  const handleDeleteChapter = useCallback(
+    (chapterId: number, chapterTitle: string) => {
+      setDeleteTarget({ kind: "chapter", id: chapterId, label: `chapter \"${chapterTitle}\"` });
+    },
+    [],
+  );
+
+  const handleSelectSection = useCallback(
+    (sectionId: number) => {
+      if (!selectedCourse || !selectedChapter) {
+        return;
+      }
+      router.push(sectionPath(selectedCourse.id, selectedChapter.id, sectionId));
+    },
+    [router, selectedChapter, selectedCourse],
+  );
+
+  const handleOpenCreateLesson = useCallback(
+    (sectionId: number) => {
+      onOpenCreateLesson(sectionId);
+    },
+    [onOpenCreateLesson],
+  );
+
+  const handleEditLesson = useCallback(
+    (lessonId: number) => {
+      const lesson = selectedSection?.lessons.find((item) => item.id === lessonId);
+      if (lesson) {
+        onOpenEditLesson(lesson);
+      }
+    },
+    [onOpenEditLesson, selectedSection],
+  );
+
+  const handleDeleteLesson = useCallback(
+    (lessonId: number, lessonTitle: string) => {
+      setDeleteTarget({ kind: "lesson", id: lessonId, label: `lesson \"${lessonTitle}\"` });
+    },
+    [],
+  );
 
   return (
     <Stack spacing={3}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between">
-        <div>
-          <Typography variant="h4" fontWeight={700}>
-            Course Tree Management
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Manage Course → Chapter → Section → Lesson hierarchy.
-          </Typography>
-        </div>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={onOpenCreateCourse}>
-          Add Course
-        </Button>
-      </Stack>
+      {showCourses ? (
+        <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2}>
+          <div>
+            <Typography variant="h4" fontWeight={700}>
+              Course Management
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Manage the Course → Chapter → Section → Lesson structure.
+            </Typography>
+          </div>
+
+          <Button variant="contained" startIcon={<AddIcon />} onClick={onOpenCreateCourse}>
+            Add course
+          </Button>
+        </Stack>
+      ) : (
+        <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2}>
+          {backPath && (
+            <IconButton aria-label="Go back" onClick={handleBack}>
+              <ArrowBackRoundedIcon />
+            </IconButton>
+          )}
+          {showChapters && selectedCourse && (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => onOpenCreateChapter(selectedCourse.id)}
+            >
+              Add chapter
+            </Button>
+          )}
+          {showLessons && selectedSection && (
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => handleOpenCreateLesson(selectedSection.id)}
+            >
+              Add lesson
+            </Button>
+          )}
+        </Stack>
+      )}
 
       {coursesQuery.isError && (
         <Alert severity="error">
@@ -368,220 +525,113 @@ export default function CourseManager() {
         </Alert>
       )}
 
-      {coursesQuery.data?.length === 0 && (
+      {!coursesQuery.isLoading && courses.length === 0 && (
         <Paper elevation={0} className="rounded-2xl border border-dashed border-slate-300 p-8 text-center">
           <Typography>No courses yet. Create your first course.</Typography>
         </Paper>
       )}
 
-      <Stack spacing={2}>
-        {coursesQuery.data?.map((course) => (
-          <Accordion key={course.id} defaultExpanded disableGutters className="rounded-2xl border border-slate-200">
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Box className="flex w-full items-center justify-between gap-3">
-                <Box>
-                  <Typography variant="h6" fontWeight={700}>
-                    {course.name}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {course.description || "No description"}
-                  </Typography>
-                </Box>
-                <Stack direction="row" spacing={1}>
-                  <IconButton size="small" onClick={() => onOpenEditCourse(course)}>
-                    <EditOutlinedIcon fontSize="small" />
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    color="error"
-                    onClick={() =>
-                      setDeleteTarget({ kind: "course", id: course.id, label: `course \"${course.name}\"` })
-                    }
-                  >
-                    <DeleteOutlineIcon fontSize="small" />
-                  </IconButton>
-                  <Button size="small" variant="outlined" onClick={() => onOpenCreateChapter(course.id)}>
-                    Add Chapter
-                  </Button>
-                </Stack>
-              </Box>
-            </AccordionSummary>
-            <AccordionDetails>
-              <Stack spacing={2}>
-                {course.chapters.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    No chapters in this course.
-                  </Typography>
-                ) : (
-                  course.chapters.map((chapter) => (
-                    <Paper key={chapter.id} elevation={0} className="rounded-xl border border-slate-200 p-4">
-                      <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2}>
-                        <Box>
-                          <Typography fontWeight={700}>
-                            Chapter {chapter.chapterOrder}: {chapter.title}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {chapter.description || "No description"}
-                          </Typography>
-                        </Box>
-                        <Stack direction="row" spacing={1}>
-                          <IconButton
-                            size="small"
-                            onClick={() =>
-                              onOpenEditChapter(
-                                chapter.id,
-                                chapter.title,
-                                chapter.description,
-                                chapter.chapterOrder
-                              )
-                            }
-                          >
-                            <EditOutlinedIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() =>
-                              setDeleteTarget({
-                                kind: "chapter",
-                                id: chapter.id,
-                                label: `chapter \"${chapter.title}\"`
-                              })
-                            }
-                          >
-                            <DeleteOutlineIcon fontSize="small" />
-                          </IconButton>
-                          <Button size="small" variant="outlined" onClick={() => onOpenCreateSection(chapter.id)}>
-                            Add Section
-                          </Button>
-                        </Stack>
-                      </Stack>
+      {showChapters && !selectedCourse && (
+        <Alert severity="warning">
+          Course not found from this route. Please go back to the course list.
+        </Alert>
+      )}
 
-                      <Divider className="my-3" />
+      {showSections && (!selectedCourse || !selectedChapter) && (
+        <Alert severity="warning">
+          Chapter not found from this route. Please go back to the chapter list.
+        </Alert>
+      )}
 
-                      <Stack spacing={1.5}>
-                        {chapter.sections.length === 0 ? (
-                          <Typography variant="body2" color="text.secondary">
-                            No sections in this chapter.
-                          </Typography>
-                        ) : (
-                          chapter.sections.map((section) => (
-                            <Paper key={section.id} elevation={0} className="rounded-lg border border-slate-100 p-3">
-                              <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2}>
-                                <Box>
-                                  <Stack direction="row" spacing={1} alignItems="center">
-                                    <Typography fontWeight={600}>{section.title}</Typography>
-                                    <Chip label={section.type} size="small" />
-                                    <Chip label={section.status} size="small" variant="outlined" />
-                                  </Stack>
-                                  <Typography variant="caption" color="text.secondary">
-                                    Level: {section.level || "-"} • Topic: {section.topic || "-"}
-                                  </Typography>
-                                </Box>
-                                <Stack direction="row" spacing={1}>
-                                  <IconButton
-                                    size="small"
-                                    onClick={() =>
-                                      onOpenEditSection(section.id, {
-                                        type: section.type,
-                                        title: section.title,
-                                        level: section.level ?? "",
-                                        topic: section.topic ?? "",
-                                        status: section.status,
-                                        sectionOrder: section.sectionOrder
-                                      })
-                                    }
-                                  >
-                                    <EditOutlinedIcon fontSize="small" />
-                                  </IconButton>
-                                  <IconButton
-                                    size="small"
-                                    color="error"
-                                    onClick={() =>
-                                      setDeleteTarget({
-                                        kind: "section",
-                                        id: section.id,
-                                        label: `section \"${section.title}\"`
-                                      })
-                                    }
-                                  >
-                                    <DeleteOutlineIcon fontSize="small" />
-                                  </IconButton>
-                                  <Button
-                                    size="small"
-                                    variant="outlined"
-                                    onClick={() => onOpenCreateLesson(section.id)}
-                                  >
-                                    Add Lesson
-                                  </Button>
-                                </Stack>
-                              </Stack>
+      {showLessons && (!selectedCourse || !selectedChapter || !selectedSection) && (
+        <Alert severity="warning">
+          Section not found from this route. Please go back to the section list.
+        </Alert>
+      )}
 
-                              <Stack spacing={1} className="mt-2">
-                                {section.lessons.length === 0 ? (
-                                  <Typography variant="caption" color="text.secondary">
-                                    No lessons in this section.
-                                  </Typography>
-                                ) : (
-                                  section.lessons.map((lesson) => (
-                                    <Box
-                                      key={lesson.id}
-                                      className="rounded-md border border-slate-100 bg-slate-50 p-2"
-                                    >
-                                      <Stack direction="row" alignItems="center" justifyContent="space-between">
-                                        <Box>
-                                          <Typography variant="body2" fontWeight={600}>
-                                            {lesson.lessonOrder}. {lesson.title}
-                                          </Typography>
-                                          <Typography variant="caption" color="text.secondary">
-                                            Video: {lesson.videoUrl || "-"} • PDF: {lesson.pdfUrl || "-"}
-                                          </Typography>
-                                        </Box>
-                                        <Stack direction="row" spacing={1}>
-                                          <IconButton
-                                            size="small"
-                                            onClick={() =>
-                                              onOpenEditLesson(lesson.id, {
-                                                title: lesson.title,
-                                                videoUrl: lesson.videoUrl ?? "",
-                                                pdfUrl: lesson.pdfUrl ?? "",
-                                                lessonOrder: lesson.lessonOrder
-                                              })
-                                            }
-                                          >
-                                            <EditOutlinedIcon fontSize="small" />
-                                          </IconButton>
-                                          <IconButton
-                                            size="small"
-                                            color="error"
-                                            onClick={() =>
-                                              setDeleteTarget({
-                                                kind: "lesson",
-                                                id: lesson.id,
-                                                label: `lesson \"${lesson.title}\"`
-                                              })
-                                            }
-                                          >
-                                            <DeleteOutlineIcon fontSize="small" />
-                                          </IconButton>
-                                        </Stack>
-                                      </Stack>
-                                    </Box>
-                                  ))
-                                )}
-                              </Stack>
-                            </Paper>
-                          ))
-                        )}
-                      </Stack>
-                    </Paper>
-                  ))
-                )}
-              </Stack>
-            </AccordionDetails>
-          </Accordion>
-        ))}
-      </Stack>
+      {showCourses && (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {courses.map((course) => (
+            <CourseCard
+              key={course.id}
+              courseId={course.id}
+              courseName={course.name}
+              description={course.description}
+              chapterCount={course.chapters.length}
+              lessonCount={lessonCountByCourse(course)}
+              onSelect={handleSelectCourse}
+              onEdit={handleEditCourse}
+              onDelete={handleDeleteCourse}
+            />
+          ))}
+        </div>
+      )}
+
+      {showChapters && selectedCourse && (
+        <Stack spacing={2}>
+          {selectedCourse.chapters.length === 0 ? (
+            <Alert severity="info">This course has no chapters yet.</Alert>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {selectedCourse.chapters.map((chapter) => (
+                <ChapterCard
+                  key={chapter.id}
+                  chapterId={chapter.id}
+                  chapterTitle={chapter.title}
+                  description={chapter.description}
+                  sectionCount={chapter.sections.length}
+                  onSelect={handleSelectChapter}
+                  onEdit={handleEditChapter}
+                  onDelete={handleDeleteChapter}
+                />
+              ))}
+            </div>
+          )}
+        </Stack>
+      )}
+
+      {showSections && selectedCourse && selectedChapter && (
+        <Stack spacing={2}>
+          {selectedChapter.sections.length === 0 ? (
+            <Alert severity="info">This chapter has no sections yet.</Alert>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-3">
+              {selectedChapter.sections.map((section) => (
+                <SectionCard
+                  key={section.id}
+                  sectionId={section.id}
+                  sectionTitle={section.title}
+                  sectionType={section.type}
+                  lessonCount={section.lessons.length}
+                  onSelect={handleSelectSection}
+                />
+              ))}
+            </div>
+          )}
+        </Stack>
+      )}
+
+      {showLessons && selectedCourse && selectedChapter && selectedSection && (
+        <Stack spacing={2}>
+          {selectedSection.lessons.length === 0 ? (
+            <Alert severity="info">This section has no lessons yet.</Alert>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2">
+              {selectedSection.lessons.map((lesson) => (
+                <LessonCard
+                  key={lesson.id}
+                  lessonId={lesson.id}
+                  lessonTitle={lesson.title}
+                  videoUrl={lesson.videoUrl}
+                  pdfUrl={lesson.pdfUrl}
+                  onEdit={handleEditLesson}
+                  onDelete={handleDeleteLesson}
+                />
+              ))}
+            </div>
+          )}
+        </Stack>
+      )}
 
       <CrudDialog
         open={courseDialogOpen}
@@ -601,9 +651,7 @@ export default function CourseManager() {
           <TextField
             label="Thumbnail URL"
             value={courseForm.thumbnailUrl || ""}
-            onChange={(event) =>
-              setCourseForm((prev) => ({ ...prev, thumbnailUrl: event.target.value }))
-            }
+            onChange={(event) => setCourseForm((prev) => ({ ...prev, thumbnailUrl: event.target.value }))}
           />
           <TextField
             label="Description"
@@ -633,91 +681,9 @@ export default function CourseManager() {
           <TextField
             label="Description"
             value={chapterForm.description || ""}
-            onChange={(event) =>
-              setChapterForm((prev) => ({ ...prev, description: event.target.value }))
-            }
+            onChange={(event) => setChapterForm((prev) => ({ ...prev, description: event.target.value }))}
             multiline
             minRows={2}
-          />
-          <TextField
-            label="Order"
-            type="number"
-            value={chapterForm.chapterOrder ?? 0}
-            onChange={(event) =>
-              setChapterForm((prev) => ({ ...prev, chapterOrder: Number(event.target.value) }))
-            }
-          />
-        </Stack>
-      </CrudDialog>
-
-      <CrudDialog
-        open={sectionDialogOpen}
-        title={editingSectionId ? "Edit Section" : "Create Section"}
-        onClose={() => setSectionDialogOpen(false)}
-        onSubmit={onSubmitSection}
-        submitLabel={editingSectionId ? "Update" : "Create"}
-        loading={busy}
-      >
-        <Stack spacing={2} className="mt-2">
-          <TextField
-            select
-            label="Section Type"
-            value={sectionForm.type}
-            onChange={(event) =>
-              setSectionForm((prev) => ({ ...prev, type: event.target.value as CourseSectionType }))
-            }
-          >
-            {sectionTypeOptions.map((option) => (
-              <MenuItem key={option} value={option}>
-                {option}
-              </MenuItem>
-            ))}
-          </TextField>
-
-          <TextField
-            label="Title"
-            value={sectionForm.title}
-            onChange={(event) => setSectionForm((prev) => ({ ...prev, title: event.target.value }))}
-            required
-          />
-
-          <TextField
-            label="Level"
-            value={sectionForm.level || ""}
-            onChange={(event) => setSectionForm((prev) => ({ ...prev, level: event.target.value }))}
-          />
-
-          <TextField
-            label="Topic"
-            value={sectionForm.topic || ""}
-            onChange={(event) => setSectionForm((prev) => ({ ...prev, topic: event.target.value }))}
-          />
-
-          <TextField
-            select
-            label="Status"
-            value={sectionForm.status}
-            onChange={(event) =>
-              setSectionForm((prev) => ({
-                ...prev,
-                status: event.target.value as CourseSectionStatus
-              }))
-            }
-          >
-            {sectionStatusOptions.map((option) => (
-              <MenuItem key={option} value={option}>
-                {option}
-              </MenuItem>
-            ))}
-          </TextField>
-
-          <TextField
-            label="Order"
-            type="number"
-            value={sectionForm.sectionOrder ?? 0}
-            onChange={(event) =>
-              setSectionForm((prev) => ({ ...prev, sectionOrder: Number(event.target.value) }))
-            }
           />
         </Stack>
       </CrudDialog>
@@ -738,22 +704,15 @@ export default function CourseManager() {
             required
           />
           <TextField
-            label="Video URL"
+            label="Video ID or URL"
             value={lessonForm.videoUrl || ""}
             onChange={(event) => setLessonForm((prev) => ({ ...prev, videoUrl: event.target.value }))}
+            helperText="Enter numeric ID to stream via /api/v1/videos/{id}/stream"
           />
           <TextField
             label="PDF URL"
             value={lessonForm.pdfUrl || ""}
             onChange={(event) => setLessonForm((prev) => ({ ...prev, pdfUrl: event.target.value }))}
-          />
-          <TextField
-            label="Order"
-            type="number"
-            value={lessonForm.lessonOrder ?? 0}
-            onChange={(event) =>
-              setLessonForm((prev) => ({ ...prev, lessonOrder: Number(event.target.value) }))
-            }
           />
         </Stack>
       </CrudDialog>
@@ -767,10 +726,231 @@ export default function CourseManager() {
         loading={
           deleteCourseMutation.isPending ||
           deleteChapterMutation.isPending ||
-          deleteSectionMutation.isPending ||
           deleteLessonMutation.isPending
         }
       />
     </Stack>
   );
 }
+
+type CourseCardProps = {
+  courseId: number;
+  courseName: string;
+  description?: string | null;
+  chapterCount: number;
+  lessonCount: number;
+  onSelect: (courseId: number) => void;
+  onEdit: (courseId: number) => void;
+  onDelete: (courseId: number, courseName: string) => void;
+};
+
+const CourseCard = memo(function CourseCard({
+  courseId,
+  courseName,
+  description,
+  chapterCount,
+  lessonCount,
+  onSelect,
+  onEdit,
+  onDelete,
+}: CourseCardProps) {
+  return (
+    <Paper
+      elevation={0}
+      onClick={() => onSelect(courseId)}
+      className="group relative aspect-[5/4] cursor-pointer overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 transition hover:-translate-y-[2px] hover:border-blue-200 hover:shadow-lg"
+    >
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.14),transparent_42%),linear-gradient(160deg,rgba(15,23,42,0.03),transparent_55%)]" />
+      <Stack className="relative h-full" spacing={2}>
+        <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+          <Typography variant="h6" fontWeight={700} className="line-clamp-2">
+            {courseName}
+          </Typography>
+          <Stack direction="row" spacing={0.5}>
+            <IconButton
+              size="small"
+              onClick={(event) => {
+                event.stopPropagation();
+                onEdit(courseId);
+              }}
+            >
+              <EditOutlinedIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              size="small"
+              color="error"
+              onClick={(event) => {
+                event.stopPropagation();
+                onDelete(courseId, courseName);
+              }}
+            >
+              <DeleteOutlineIcon fontSize="small" />
+            </IconButton>
+          </Stack>
+        </Stack>
+
+        <Typography variant="body2" color="text.secondary" className="line-clamp-4">
+          {description || "No description"}
+        </Typography>
+
+        <div className="mt-auto flex flex-wrap items-center gap-2">
+          <Chip size="small" label={`${chapterCount} chapter`} />
+          <Chip size="small" label={`${lessonCount} lesson`} />
+        </div>
+      </Stack>
+    </Paper>
+  );
+});
+
+type ChapterCardProps = {
+  chapterId: number;
+  chapterTitle: string;
+  description?: string | null;
+  sectionCount: number;
+  onSelect: (chapterId: number) => void;
+  onEdit: (chapterId: number) => void;
+  onDelete: (chapterId: number, chapterTitle: string) => void;
+};
+
+const ChapterCard = memo(function ChapterCard({
+  chapterId,
+  chapterTitle,
+  description,
+  sectionCount,
+  onSelect,
+  onEdit,
+  onDelete,
+}: ChapterCardProps) {
+  return (
+    <Paper
+      elevation={0}
+      onClick={() => onSelect(chapterId)}
+      className="cursor-pointer rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-blue-200"
+    >
+      <Stack spacing={1.5}>
+        <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+          <Typography variant="subtitle1" fontWeight={700} className="line-clamp-2">
+            {chapterTitle}
+          </Typography>
+          <Stack direction="row" spacing={0.5}>
+            <IconButton
+              size="small"
+              onClick={(event) => {
+                event.stopPropagation();
+                onEdit(chapterId);
+              }}
+            >
+              <EditOutlinedIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              size="small"
+              color="error"
+              onClick={(event) => {
+                event.stopPropagation();
+                onDelete(chapterId, chapterTitle);
+              }}
+            >
+              <DeleteOutlineIcon fontSize="small" />
+            </IconButton>
+          </Stack>
+        </Stack>
+
+        <Typography variant="body2" color="text.secondary" className="line-clamp-3">
+          {description || "No description"}
+        </Typography>
+
+        <div className="flex items-center gap-2 pt-1">
+          <Chip size="small" label={`${sectionCount} section`} />
+        </div>
+      </Stack>
+    </Paper>
+  );
+});
+
+type SectionCardProps = {
+  sectionId: number;
+  sectionTitle: string;
+  sectionType: CourseSectionType;
+  lessonCount: number;
+  onSelect: (sectionId: number) => void;
+};
+
+const SectionCard = memo(function SectionCard({
+  sectionId,
+  sectionTitle,
+  sectionType,
+  lessonCount,
+  onSelect,
+}: SectionCardProps) {
+  return (
+    <Paper
+      elevation={0}
+      onClick={() => onSelect(sectionId)}
+      className="cursor-pointer rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-blue-200"
+    >
+      <Stack spacing={1.5}>
+        <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+          <Stack direction="row" spacing={1} alignItems="center">
+            {sectionIconMap[sectionType]}
+            <Typography variant="subtitle1" fontWeight={700}>
+              {sectionTitle}
+            </Typography>
+          </Stack>
+          <Chip size="small" label={sectionType} />
+        </Stack>
+
+        <div className="flex items-center gap-2 pt-1">
+          <Chip size="small" label={`${lessonCount} lesson`} />
+        </div>
+      </Stack>
+    </Paper>
+  );
+});
+
+type LessonCardProps = {
+  lessonId: number;
+  lessonTitle: string;
+  videoUrl?: string | null;
+  pdfUrl?: string | null;
+  onEdit: (lessonId: number) => void;
+  onDelete: (lessonId: number, lessonTitle: string) => void;
+};
+
+const LessonCard = memo(function LessonCard({
+  lessonId,
+  lessonTitle,
+  videoUrl,
+  pdfUrl,
+  onEdit,
+  onDelete,
+}: LessonCardProps) {
+  return (
+    <Paper elevation={0} className="rounded-2xl border border-slate-200 bg-white p-4">
+      <Stack spacing={1.5}>
+        <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+          <Stack direction="row" spacing={1} alignItems="center">
+            <PlayCircleRoundedIcon fontSize="small" />
+            <Typography variant="subtitle1" fontWeight={700}>
+              {lessonTitle}
+            </Typography>
+          </Stack>
+          <Stack direction="row" spacing={0.5}>
+            <IconButton size="small" onClick={() => onEdit(lessonId)}>
+              <EditOutlinedIcon fontSize="small" />
+            </IconButton>
+            <IconButton size="small" color="error" onClick={() => onDelete(lessonId, lessonTitle)}>
+              <DeleteOutlineIcon fontSize="small" />
+            </IconButton>
+          </Stack>
+        </Stack>
+
+        <Typography variant="body2" color="text.secondary" className="break-all">
+          Video: {videoUrl || "-"}
+        </Typography>
+        <Typography variant="body2" color="text.secondary" className="break-all">
+          PDF: {pdfUrl || "-"}
+        </Typography>
+      </Stack>
+    </Paper>
+  );
+});
