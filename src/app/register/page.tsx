@@ -13,9 +13,8 @@ import Typography from "@mui/material/Typography";
 import { useMutation } from "@tanstack/react-query";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
-import { BYPASS_ADMIN_AUTH } from "@/lib/env";
 import { registerAdmin } from "@/lib/lms-api";
 import { setToken } from "@/lib/storage";
 
@@ -25,12 +24,6 @@ export default function RegisterAdminPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [bootstrapKey, setBootstrapKey] = useState("");
-
-  useEffect(() => {
-    if (BYPASS_ADMIN_AUTH) {
-      router.replace("/courses");
-    }
-  }, [router]);
 
   const registerMutation = useMutation({
     mutationFn: registerAdmin,

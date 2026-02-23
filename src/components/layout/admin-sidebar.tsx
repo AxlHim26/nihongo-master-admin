@@ -13,7 +13,6 @@ import Typography from "@mui/material/Typography";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
-import { BYPASS_ADMIN_AUTH } from "@/lib/env";
 import { clearToken } from "@/lib/storage";
 
 const navItems = [
@@ -30,7 +29,7 @@ export default function AdminSidebar() {
 
   const onLogout = () => {
     clearToken();
-    router.replace(BYPASS_ADMIN_AUTH ? "/courses" : "/login");
+    router.replace("/login");
   };
 
   return (
