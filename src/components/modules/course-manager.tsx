@@ -3,8 +3,10 @@
 import AddIcon from "@mui/icons-material/Add";
 import ArrowBackRoundedIcon from "@mui/icons-material/ArrowBackRounded";
 import AutoStoriesRoundedIcon from "@mui/icons-material/AutoStoriesRounded";
+import GraphicEqRoundedIcon from "@mui/icons-material/GraphicEqRounded";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import ImportContactsRoundedIcon from "@mui/icons-material/ImportContactsRounded";
 import MenuBookRoundedIcon from "@mui/icons-material/MenuBookRounded";
 import PlayCircleRoundedIcon from "@mui/icons-material/PlayCircleRounded";
 import SchoolRoundedIcon from "@mui/icons-material/SchoolRounded";
@@ -12,6 +14,7 @@ import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
+import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
@@ -26,13 +29,16 @@ import {
   createChapter,
   createCourse,
   createLesson,
+  createSection,
   deleteChapter,
   deleteCourse,
   deleteLesson,
+  deleteSection,
   getCourses,
   updateChapter,
   updateCourse,
   updateLesson,
+  updateSection,
 } from "@/lib/lms-api";
 import { queryKeys } from "@/lib/query-keys";
 import type {
@@ -44,19 +50,35 @@ import type {
   CourseSection,
   CourseSectionType,
   LessonRequest,
+  SectionRequest,
 } from "@/lib/types";
 
 const initialCourseForm: CourseRequest = { name: "", thumbnailUrl: "", description: "" };
 const initialChapterForm: ChapterRequest = { title: "", description: "", chapterOrder: 0 };
+const initialSectionForm: SectionRequest = { type: "GRAMMAR" };
 const initialLessonForm: LessonRequest = {
   title: "",
   videoUrl: "",
   pdfUrl: "",
   lessonOrder: 0,
 };
+const sectionTypeOptions: CourseSectionType[] = [
+  "GRAMMAR",
+  "VOCABULARY",
+  "KANJI",
+  "READING",
+  "LISTENING",
+];
+const sectionTypeLabelMap: Record<CourseSectionType, string> = {
+  GRAMMAR: "Ngữ pháp",
+  VOCABULARY: "Từ vựng",
+  KANJI: "Chữ Hán",
+  READING: "Đọc",
+  LISTENING: "Nghe",
+};
 
 type DeleteTarget = {
-  kind: "course" | "chapter" | "lesson";
+  kind: "course" | "chapter" | "section" | "lesson";
   id: number;
   label: string;
 };
@@ -80,6 +102,8 @@ const sectionIconMap: Record<CourseSectionType, React.ReactNode> = {
   VOCABULARY: <AutoStoriesRoundedIcon fontSize="small" />,
   GRAMMAR: <MenuBookRoundedIcon fontSize="small" />,
   KANJI: <SchoolRoundedIcon fontSize="small" />,
+  READING: <ImportContactsRoundedIcon fontSize="small" />,
+  LISTENING: <GraphicEqRoundedIcon fontSize="small" />,
 };
 
 type CourseManagerProps = {
@@ -106,17 +130,21 @@ export default function CourseManager({
 
   const [courseDialogOpen, setCourseDialogOpen] = useState(false);
   const [chapterDialogOpen, setChapterDialogOpen] = useState(false);
+  const [sectionDialogOpen, setSectionDialogOpen] = useState(false);
   const [lessonDialogOpen, setLessonDialogOpen] = useState(false);
 
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [editingChapterId, setEditingChapterId] = useState<number | null>(null);
+  const [editingSectionId, setEditingSectionId] = useState<number | null>(null);
   const [editingLessonId, setEditingLessonId] = useState<number | null>(null);
 
   const [courseContextId, setCourseContextId] = useState<number | null>(null);
+  const [chapterContextId, setChapterContextId] = useState<number | null>(null);
   const [sectionContextId, setSectionContextId] = useState<number | null>(null);
 
   const [courseForm, setCourseForm] = useState<CourseRequest>(initialCourseForm);
   const [chapterForm, setChapterForm] = useState<ChapterRequest>(initialChapterForm);
+  const [sectionForm, setSectionForm] = useState<SectionRequest>(initialSectionForm);
   const [lessonForm, setLessonForm] = useState<LessonRequest>(initialLessonForm);
 
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
@@ -197,6 +225,8 @@ export default function CourseManager({
       queryClient.invalidateQueries({ queryKey: queryKeys.sections("GRAMMAR") }),
       queryClient.invalidateQueries({ queryKey: queryKeys.sections("VOCABULARY") }),
       queryClient.invalidateQueries({ queryKey: queryKeys.sections("KANJI") }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.sections("READING") }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.sections("LISTENING") }),
     ]);
   };
 
@@ -240,6 +270,27 @@ export default function CourseManager({
     },
   });
 
+  const createSectionMutation = useMutation({
+    mutationFn: ({ chapterId, payload }: { chapterId: number; payload: SectionRequest }) =>
+      createSection(chapterId, payload),
+    onSuccess: async () => {
+      setSectionDialogOpen(false);
+      setSectionForm(initialSectionForm);
+      setEditingSectionId(null);
+      await invalidateAll();
+    },
+  });
+
+  const updateSectionMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: number; payload: SectionRequest }) => updateSection(id, payload),
+    onSuccess: async () => {
+      setSectionDialogOpen(false);
+      setSectionForm(initialSectionForm);
+      setEditingSectionId(null);
+      await invalidateAll();
+    },
+  });
+
   const createLessonMutation = useMutation({
     mutationFn: ({ sectionId, payload }: { sectionId: number; payload: LessonRequest }) =>
       createLesson(sectionId, payload),
@@ -263,6 +314,7 @@ export default function CourseManager({
 
   const deleteCourseMutation = useMutation({ mutationFn: deleteCourse, onSuccess: invalidateAll });
   const deleteChapterMutation = useMutation({ mutationFn: deleteChapter, onSuccess: invalidateAll });
+  const deleteSectionMutation = useMutation({ mutationFn: deleteSection, onSuccess: invalidateAll });
   const deleteLessonMutation = useMutation({ mutationFn: deleteLesson, onSuccess: invalidateAll });
 
   const busy =
@@ -270,6 +322,8 @@ export default function CourseManager({
     updateCourseMutation.isPending ||
     createChapterMutation.isPending ||
     updateChapterMutation.isPending ||
+    createSectionMutation.isPending ||
+    updateSectionMutation.isPending ||
     createLessonMutation.isPending ||
     updateLessonMutation.isPending;
 
@@ -332,6 +386,38 @@ export default function CourseManager({
     });
   };
 
+  const onOpenCreateSection = useCallback((chapterId: number) => {
+    setEditingSectionId(null);
+    setChapterContextId(chapterId);
+    setSectionForm(initialSectionForm);
+    setSectionDialogOpen(true);
+  }, []);
+
+  const onOpenEditSection = useCallback((section: CourseSection) => {
+    setEditingSectionId(section.id);
+    setSectionForm({ type: section.type });
+    setSectionDialogOpen(true);
+  }, []);
+
+  const onSubmitSection = () => {
+    if (editingSectionId) {
+      updateSectionMutation.mutate({
+        id: editingSectionId,
+        payload: sectionForm,
+      });
+      return;
+    }
+
+    if (!chapterContextId) {
+      return;
+    }
+
+    createSectionMutation.mutate({
+      chapterId: chapterContextId,
+      payload: sectionForm,
+    });
+  };
+
   const onOpenCreateLesson = useCallback((sectionId: number) => {
     setEditingLessonId(null);
     setSectionContextId(sectionId);
@@ -373,6 +459,7 @@ export default function CourseManager({
     const actionMap = {
       course: deleteCourseMutation,
       chapter: deleteChapterMutation,
+      section: deleteSectionMutation,
       lesson: deleteLessonMutation,
     };
 
@@ -381,7 +468,7 @@ export default function CourseManager({
         setDeleteTarget(null);
       },
     });
-  }, [deleteChapterMutation, deleteCourseMutation, deleteLessonMutation, deleteTarget]);
+  }, [deleteChapterMutation, deleteCourseMutation, deleteLessonMutation, deleteSectionMutation, deleteTarget]);
 
   const handleBack = useCallback(() => {
     if (backPath) {
@@ -450,6 +537,34 @@ export default function CourseManager({
     [router, selectedChapter, selectedCourse],
   );
 
+  const handleOpenCreateSection = useCallback(() => {
+    if (!selectedChapter) {
+      return;
+    }
+    onOpenCreateSection(selectedChapter.id);
+  }, [onOpenCreateSection, selectedChapter]);
+
+  const handleEditSection = useCallback(
+    (sectionId: number) => {
+      const section = selectedChapter?.sections.find((item) => item.id === sectionId);
+      if (section) {
+        onOpenEditSection(section);
+      }
+    },
+    [onOpenEditSection, selectedChapter],
+  );
+
+  const handleDeleteSection = useCallback(
+    (sectionId: number, sectionType: CourseSectionType) => {
+      setDeleteTarget({
+        kind: "section",
+        id: sectionId,
+        label: `section \"${sectionTypeLabelMap[sectionType]}\" and all nested lessons`,
+      });
+    },
+    [],
+  );
+
   const handleOpenCreateLesson = useCallback(
     (sectionId: number) => {
       onOpenCreateLesson(sectionId);
@@ -514,6 +629,11 @@ export default function CourseManager({
               onClick={() => handleOpenCreateLesson(selectedSection.id)}
             >
               Add lesson
+            </Button>
+          )}
+          {showSections && selectedChapter && (
+            <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenCreateSection}>
+              Add section
             </Button>
           )}
         </Stack>
@@ -600,10 +720,11 @@ export default function CourseManager({
                 <SectionCard
                   key={section.id}
                   sectionId={section.id}
-                  sectionTitle={section.title}
                   sectionType={section.type}
                   lessonCount={section.lessons.length}
                   onSelect={handleSelectSection}
+                  onEdit={handleEditSection}
+                  onDelete={handleDeleteSection}
                 />
               ))}
             </div>
@@ -689,6 +810,38 @@ export default function CourseManager({
       </CrudDialog>
 
       <CrudDialog
+        open={sectionDialogOpen}
+        title={editingSectionId ? "Edit Section" : "Create Section"}
+        onClose={() => setSectionDialogOpen(false)}
+        onSubmit={onSubmitSection}
+        submitLabel={editingSectionId ? "Update" : "Create"}
+        loading={busy}
+      >
+        <Stack spacing={2} className="mt-2">
+          {(createSectionMutation.isError || updateSectionMutation.isError) && (
+            <Alert severity="error">
+              {((createSectionMutation.error || updateSectionMutation.error) as Error)?.message ??
+                "Failed to save section."}
+            </Alert>
+          )}
+          <TextField
+            select
+            label="Section type"
+            value={sectionForm.type}
+            onChange={(event) =>
+              setSectionForm((prev) => ({ ...prev, type: event.target.value as CourseSectionType }))
+            }
+          >
+            {sectionTypeOptions.map((type) => (
+              <MenuItem key={type} value={type}>
+                {sectionTypeLabelMap[type]}
+              </MenuItem>
+            ))}
+          </TextField>
+        </Stack>
+      </CrudDialog>
+
+      <CrudDialog
         open={lessonDialogOpen}
         title={editingLessonId ? "Edit Lesson" : "Create Lesson"}
         onClose={() => setLessonDialogOpen(false)}
@@ -726,6 +879,7 @@ export default function CourseManager({
         loading={
           deleteCourseMutation.isPending ||
           deleteChapterMutation.isPending ||
+          deleteSectionMutation.isPending ||
           deleteLessonMutation.isPending
         }
       />
@@ -869,18 +1023,20 @@ const ChapterCard = memo(function ChapterCard({
 
 type SectionCardProps = {
   sectionId: number;
-  sectionTitle: string;
   sectionType: CourseSectionType;
   lessonCount: number;
   onSelect: (sectionId: number) => void;
+  onEdit: (sectionId: number) => void;
+  onDelete: (sectionId: number, sectionType: CourseSectionType) => void;
 };
 
 const SectionCard = memo(function SectionCard({
   sectionId,
-  sectionTitle,
   sectionType,
   lessonCount,
   onSelect,
+  onEdit,
+  onDelete,
 }: SectionCardProps) {
   return (
     <Paper
@@ -893,10 +1049,31 @@ const SectionCard = memo(function SectionCard({
           <Stack direction="row" spacing={1} alignItems="center">
             {sectionIconMap[sectionType]}
             <Typography variant="subtitle1" fontWeight={700}>
-              {sectionTitle}
+              {sectionTypeLabelMap[sectionType]}
             </Typography>
           </Stack>
-          <Chip size="small" label={sectionType} />
+          <Stack direction="row" spacing={0.5} alignItems="center">
+            <Chip size="small" label={sectionTypeLabelMap[sectionType]} />
+            <IconButton
+              size="small"
+              onClick={(event) => {
+                event.stopPropagation();
+                onEdit(sectionId);
+              }}
+            >
+              <EditOutlinedIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              size="small"
+              color="error"
+              onClick={(event) => {
+                event.stopPropagation();
+                onDelete(sectionId, sectionType);
+              }}
+            >
+              <DeleteOutlineIcon fontSize="small" />
+            </IconButton>
+          </Stack>
         </Stack>
 
         <div className="flex items-center gap-2 pt-1">

@@ -30,9 +30,16 @@ import type {
 } from "@/lib/types";
 
 const initialForm = (type: CourseSectionType): SectionRequest => ({
-  type,
-  sectionOrder: 0
+  type
 });
+
+const sectionTypeLabelMap: Record<CourseSectionType, string> = {
+  GRAMMAR: "Ngữ pháp",
+  VOCABULARY: "Từ vựng",
+  KANJI: "Chữ Hán",
+  READING: "Đọc",
+  LISTENING: "Nghe"
+};
 
 export default function SectionManager({
   type,
@@ -110,8 +117,7 @@ export default function SectionManager({
   const onOpenEdit = (section: CourseSection) => {
     setEditing(section);
     setForm({
-      type: section.type,
-      sectionOrder: section.sectionOrder
+      type: section.type
     });
     setDialogOpen(true);
   };
@@ -166,17 +172,17 @@ export default function SectionManager({
             </TableRow>
           </TableHead>
           <TableBody>
-            {sectionsQuery.data?.map((section) => (
+          {sectionsQuery.data?.map((section) => (
               <TableRow key={section.id}>
                 <TableCell>
-                  <Typography fontWeight={600}>{section.title}</Typography>
+                  <Typography fontWeight={600}>{sectionTypeLabelMap[section.type]}</Typography>
                   <Typography variant="caption" color="text.secondary">
                     Order: {section.sectionOrder}
                   </Typography>
                 </TableCell>
                 <TableCell>{chapterNameMap.get(section.chapterId) ?? `#${section.chapterId}`}</TableCell>
                 <TableCell>
-                  <Chip label={section.type} size="small" />
+                  <Chip label={sectionTypeLabelMap[section.type]} size="small" />
                 </TableCell>
                 <TableCell align="right">
                   <Button
@@ -228,14 +234,6 @@ export default function SectionManager({
             </TextField>
           )}
 
-          <TextField
-            label="Order"
-            type="number"
-            value={form.sectionOrder ?? 0}
-            onChange={(event) =>
-              setForm((prev) => ({ ...prev, sectionOrder: Number(event.target.value) }))
-            }
-          />
         </Stack>
       </CrudDialog>
 
@@ -243,7 +241,9 @@ export default function SectionManager({
         open={Boolean(deleteTarget)}
         title="Delete section"
         description={
-          deleteTarget ? `Delete section \"${deleteTarget.title}\" and all lessons?` : ""
+          deleteTarget
+            ? `Delete section \"${sectionTypeLabelMap[deleteTarget.type]}\" and all lessons?`
+            : ""
         }
         onClose={() => setDeleteTarget(null)}
         onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
