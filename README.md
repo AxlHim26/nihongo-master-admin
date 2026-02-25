@@ -1,43 +1,38 @@
-# nihongo-master-admin
+# MiraiGo Admin
 
-Admin frontend for Nihongo LMS.
+MiraiGo Admin is the internal management console for operating MiraiGo content and users.
 
-Backend is **not** hosted in this repo anymore.
-Use `nihongo-master-be` as API server.
+## Responsibilities
 
-## Local setup
+- User management for admin and learner accounts
+- Content maintenance workflows for grammar, vocabulary, kanji, reading, and listening sections
+- Operational control for published learning resources
 
-1. Install dependencies:
+## Tech Stack
 
-```bash
-npm install
+- **Next.js 16**
+- **TypeScript**
+- **Material UI**
+- **TanStack Query**
+- **Tailwind CSS**
+
+## Key Capabilities
+
+- Route-driven course management screens
+- CRUD dialogs for all hierarchy levels
+- API-first architecture connected to MiraiGo Backend
+
+## Project Structure
+
+```text
+src/
+  app/                      # Route entries (courses, users, login, ...)
+  components/modules/       # Feature modules for admin screens
+  components/common/        # Shared admin dialogs and controls
+  lib/                      # API client, query keys, shared types
 ```
 
-2. Create env file:
+## Integration Note
 
-```bash
-cp .env.example .env
-```
-
-3. Edit `.env`:
-
-```
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
-```
-
-4. Run admin frontend:
-
-```bash
-npm run dev
-```
-
-## Modules
-
-- Courses (tree CRUD: course -> chapter -> section -> lesson)
-- Chapters
-- Grammar
-- Vocabulary (under development status in UI)
-- Kanji
-- Lessons
-
-See detailed implementation notes: `docs/ADMIN_DASHBOARD_IMPLEMENTATION.md`.
+MiraiGo Admin depends on `nihongo-master-be` for authentication, course APIs, and user APIs.  
+No backend service is hosted inside this repository.
