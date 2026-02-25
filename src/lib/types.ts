@@ -1,4 +1,9 @@
-export type CourseSectionType = "VOCABULARY" | "GRAMMAR" | "KANJI";
+export type CourseSectionType =
+  | "VOCABULARY"
+  | "GRAMMAR"
+  | "KANJI"
+  | "READING"
+  | "LISTENING";
 
 export type ApiResponse<T> = {
   status: number;
@@ -20,7 +25,6 @@ export type CourseSection = {
   id: number;
   chapterId: number;
   type: CourseSectionType;
-  title: string;
   sectionOrder: number;
   lessons: CourseLesson[];
 };
@@ -58,7 +62,6 @@ export type ChapterRequest = {
 
 export type SectionRequest = {
   type: CourseSectionType;
-  sectionOrder?: number;
 };
 
 export type LessonRequest = {
@@ -100,4 +103,11 @@ export type CreateUserRequest = {
   email: string;
   password: string;
   role?: UserRole;
+};
+
+export type UpdateUserRequest = {
+  username: string;
+  email: string;
+  role?: UserRole;
+  password?: string;
 };

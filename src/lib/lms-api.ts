@@ -13,6 +13,7 @@ import type {
   CreateUserRequest,
   LessonRequest,
   SectionRequest,
+  UpdateUserRequest,
   UserAccount
 } from "@/lib/types";
 
@@ -112,4 +113,15 @@ export const createUser = (payload: CreateUserRequest) =>
   apiRequest<UserAccount>("/api/v1/admin/users", {
     method: "POST",
     body: JSON.stringify(payload)
+  });
+
+export const updateUser = (id: number, payload: UpdateUserRequest) =>
+  apiRequest<UserAccount>(`/api/v1/admin/users/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(payload)
+  });
+
+export const deleteUser = (id: number) =>
+  apiRequest<void>(`/api/v1/admin/users/${id}`, {
+    method: "DELETE"
   });
