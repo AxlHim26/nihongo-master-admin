@@ -136,7 +136,12 @@ export default function UserManager() {
 
   return (
     <Box className="space-y-6">
-      <Stack direction="row" alignItems="center" justifyContent="space-between">
+      <Stack
+        direction="row"
+        alignItems="center"
+        justifyContent="space-between"
+        className="admin-panel px-4 py-3"
+      >
         <div>
           <Typography variant="h5" fontWeight={700}>
             User Accounts
@@ -159,7 +164,7 @@ export default function UserManager() {
         </Alert>
       )}
 
-      <TableContainer component={Paper} variant="outlined">
+      <TableContainer component={Paper} variant="outlined" className="admin-panel overflow-hidden rounded-2xl">
         <Table>
           <TableHead>
             <TableRow>
