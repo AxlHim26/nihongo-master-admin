@@ -21,18 +21,30 @@ export default function ConfirmDialog({
   loading?: boolean;
 }) {
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>{title}</DialogTitle>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="xs"
+      fullWidth
+      PaperProps={{ className: "rounded-3xl border border-[var(--admin-border)]" }}
+    >
+      <DialogTitle className="pb-1 font-semibold">{title}</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary">
           {description}
         </Typography>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose} color="inherit">
+      <DialogActions className="px-6 pb-5">
+        <Button onClick={onClose} color="inherit" className="rounded-xl">
           Cancel
         </Button>
-        <Button onClick={onConfirm} color="error" variant="contained" disabled={loading}>
+        <Button
+          onClick={onConfirm}
+          color="error"
+          variant="contained"
+          disabled={loading}
+          className="rounded-xl px-4"
+        >
           {loading ? "Deleting..." : "Delete"}
         </Button>
       </DialogActions>

@@ -34,11 +34,11 @@ const initialForm = (type: CourseSectionType): SectionRequest => ({
 });
 
 const sectionTypeLabelMap: Record<CourseSectionType, string> = {
-  GRAMMAR: "Ngữ pháp",
-  VOCABULARY: "Từ vựng",
-  KANJI: "Chữ Hán",
-  READING: "Đọc",
-  LISTENING: "Nghe"
+  GRAMMAR: "Grammar",
+  VOCABULARY: "Vocabulary",
+  KANJI: "Kanji",
+  READING: "Reading",
+  LISTENING: "Listening"
 };
 
 export default function SectionManager({
@@ -133,7 +133,12 @@ export default function SectionManager({
 
   return (
     <Stack spacing={3}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center">
+      <Stack
+        direction="row"
+        justifyContent="space-between"
+        alignItems="center"
+        className="admin-panel px-4 py-3"
+      >
         <div>
           <Typography variant="h4" fontWeight={700}>
             {title}
@@ -161,7 +166,7 @@ export default function SectionManager({
 
       {sectionsQuery.isError && <Alert severity="error">Failed to load sections.</Alert>}
 
-      <Paper elevation={0} className="rounded-2xl border border-slate-200">
+      <Paper elevation={0} className="admin-panel overflow-hidden rounded-2xl">
         <Table>
           <TableHead>
             <TableRow>

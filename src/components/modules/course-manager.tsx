@@ -70,11 +70,11 @@ const sectionTypeOptions: CourseSectionType[] = [
   "LISTENING",
 ];
 const sectionTypeLabelMap: Record<CourseSectionType, string> = {
-  GRAMMAR: "Ngữ pháp",
-  VOCABULARY: "Từ vựng",
-  KANJI: "Chữ Hán",
-  READING: "Đọc",
-  LISTENING: "Nghe",
+  GRAMMAR: "Grammar",
+  VOCABULARY: "Vocabulary",
+  KANJI: "Kanji",
+  READING: "Reading",
+  LISTENING: "Listening",
 };
 
 type DeleteTarget = {
@@ -590,15 +590,18 @@ export default function CourseManager({
   );
 
   return (
-    <Stack spacing={3}>
+    <Stack spacing={3} className="pb-2">
       {showCourses ? (
-        <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2}>
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+          spacing={2}
+          className="admin-panel px-4 py-3"
+        >
           <div>
             <Typography variant="h4" fontWeight={700}>
               Course Management
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Manage the Course → Chapter → Section → Lesson structure.
             </Typography>
           </div>
 
@@ -607,7 +610,13 @@ export default function CourseManager({
           </Button>
         </Stack>
       ) : (
-        <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={2}>
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+          spacing={2}
+          className="admin-panel px-4 py-3"
+        >
           {backPath && (
             <IconButton aria-label="Go back" onClick={handleBack}>
               <ArrowBackRoundedIcon />
@@ -646,7 +655,10 @@ export default function CourseManager({
       )}
 
       {!coursesQuery.isLoading && courses.length === 0 && (
-        <Paper elevation={0} className="rounded-2xl border border-dashed border-slate-300 p-8 text-center">
+        <Paper
+          elevation={0}
+          className="admin-panel rounded-2xl border-dashed p-8 text-center"
+        >
           <Typography>No courses yet. Create your first course.</Typography>
         </Paper>
       )}
@@ -692,7 +704,7 @@ export default function CourseManager({
           {selectedCourse.chapters.length === 0 ? (
             <Alert severity="info">This course has no chapters yet.</Alert>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {selectedCourse.chapters.map((chapter) => (
                 <ChapterCard
                   key={chapter.id}
@@ -715,7 +727,7 @@ export default function CourseManager({
           {selectedChapter.sections.length === 0 ? (
             <Alert severity="info">This chapter has no sections yet.</Alert>
           ) : (
-            <div className="grid gap-3 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-3">
               {selectedChapter.sections.map((section) => (
                 <SectionCard
                   key={section.id}
@@ -737,7 +749,7 @@ export default function CourseManager({
           {selectedSection.lessons.length === 0 ? (
             <Alert severity="info">This section has no lessons yet.</Alert>
           ) : (
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2">
               {selectedSection.lessons.map((lesson) => (
                 <LessonCard
                   key={lesson.id}
@@ -860,7 +872,7 @@ export default function CourseManager({
             label="Video ID or URL"
             value={lessonForm.videoUrl || ""}
             onChange={(event) => setLessonForm((prev) => ({ ...prev, videoUrl: event.target.value }))}
-            helperText="Enter numeric ID to stream via /api/v1/videos/{id}/stream"
+            helperText="Use YouTube / Google Drive file|folder / direct mp4 URL"
           />
           <TextField
             label="PDF URL"
@@ -912,7 +924,7 @@ const CourseCard = memo(function CourseCard({
     <Paper
       elevation={0}
       onClick={() => onSelect(courseId)}
-      className="group relative aspect-[5/4] cursor-pointer overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 transition hover:-translate-y-[2px] hover:border-blue-200 hover:shadow-lg"
+      className="admin-card group relative aspect-[5/4] cursor-pointer overflow-hidden rounded-3xl p-5"
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.14),transparent_42%),linear-gradient(160deg,rgba(15,23,42,0.03),transparent_55%)]" />
       <Stack className="relative h-full" spacing={2}>
@@ -979,7 +991,7 @@ const ChapterCard = memo(function ChapterCard({
     <Paper
       elevation={0}
       onClick={() => onSelect(chapterId)}
-      className="cursor-pointer rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-blue-200"
+      className="admin-card cursor-pointer rounded-2xl p-4"
     >
       <Stack spacing={1.5}>
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
@@ -1042,7 +1054,7 @@ const SectionCard = memo(function SectionCard({
     <Paper
       elevation={0}
       onClick={() => onSelect(sectionId)}
-      className="cursor-pointer rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-blue-200"
+      className="admin-card cursor-pointer rounded-2xl p-4"
     >
       <Stack spacing={1.5}>
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
@@ -1102,7 +1114,7 @@ const LessonCard = memo(function LessonCard({
   onDelete,
 }: LessonCardProps) {
   return (
-    <Paper elevation={0} className="rounded-2xl border border-slate-200 bg-white p-4">
+    <Paper elevation={0} className="admin-card rounded-2xl p-4">
       <Stack spacing={1.5}>
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
           <Stack direction="row" spacing={1} alignItems="center">
