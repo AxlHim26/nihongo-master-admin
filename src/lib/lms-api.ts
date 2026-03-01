@@ -2,7 +2,6 @@ import { apiRequest } from "@/lib/api-client";
 import type {
   AdminLoginRequest,
   AdminLoginResponse,
-  AdminRegisterRequest,
   ChapterRequest,
   Course,
   CourseChapter,
@@ -19,12 +18,6 @@ import type {
 
 export const loginAdmin = (payload: AdminLoginRequest) =>
   apiRequest<AdminLoginResponse>("/api/v1/auth/authenticate", {
-    method: "POST",
-    body: JSON.stringify(payload)
-  }, false);
-
-export const registerAdmin = (payload: AdminRegisterRequest) =>
-  apiRequest<AdminLoginResponse>("/api/v1/auth/register-admin", {
     method: "POST",
     body: JSON.stringify(payload)
   }, false);

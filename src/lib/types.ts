@@ -80,13 +80,6 @@ export type AdminLoginResponse = {
   token: string;
 };
 
-export type AdminRegisterRequest = {
-  username: string;
-  email: string;
-  password: string;
-  bootstrapKey: string;
-};
-
 export type UserRole = "USER" | "ADMIN";
 
 export type UserAccount = {

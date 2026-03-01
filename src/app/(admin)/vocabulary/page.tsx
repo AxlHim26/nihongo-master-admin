@@ -1,11 +1,10 @@
-import SectionManager from "@/components/modules/section-manager";
+import ModuleComingSoon from "@/components/modules/module-coming-soon";
 
 export default function VocabularyPage() {
   return (
-    <SectionManager
-      type="VOCABULARY"
+    <ModuleComingSoon
       title="Vocabulary Management"
-      underDevelopment
+      description="Vocabulary management is a standalone module and is currently under development."
     />
   );
 }
